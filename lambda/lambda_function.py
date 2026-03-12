@@ -16,57 +16,97 @@ RSS_FEEDS = [
     ("Guardian",    "https://www.theguardian.com/world/rss"),
 ]
 
+POLISH_FEEDS = [
+    ("TVN24",       "https://tvn24.pl/najnowsze.xml"),
+    ("Onet",        "https://wiadomosci.onet.pl/.feed/rss"),
+    ("PAP",         "https://www.pap.pl/aktualnosci.xml"),
+    ("PolskieRadio","https://www.polskieradio.pl/rss/news.xml"),
+]
+
 HEADERS = {"User-Agent": "WorldExplainer/1.0 (+https://github.com/worldexplainer)"}
+
+
+def _parse_feed(source, url, max_items=6):
+    items = []
+    try:
+        resp = requests.get(url, timeout=8, headers=HEADERS)
+        resp.raise_for_status()
+        root = ET.fromstring(resp.content)
+        for item in root.findall(".//item")[:max_items]:
+            title = (item.findtext("title") or "").strip()
+            desc  = (item.findtext("description") or "").strip()
+            desc  = re.sub(r"<[^>]+>", " ", desc).strip()[:180]
+            if title:
+                items.append(f"[{source}] {title}" + (f": {desc}" if desc else ""))
+    except Exception as exc:
+        print(f"RSS error ({source}): {exc}")
+    return items
 
 
 def fetch_headlines():
     headlines = []
     for source, url in RSS_FEEDS:
-        try:
-            resp = requests.get(url, timeout=8, headers=HEADERS)
-            resp.raise_for_status()
-            root = ET.fromstring(resp.content)
-            for item in root.findall(".//item")[:6]:
-                title = (item.findtext("title") or "").strip()
-                desc  = (item.findtext("description") or "").strip()
-                # strip HTML tags from description
-                desc = re.sub(r"<[^>]+>", " ", desc).strip()[:180]
-                if title:
-                    headlines.append(f"[{source}] {title}" + (f": {desc}" if desc else ""))
-        except Exception as exc:
-            print(f"RSS error ({source}): {exc}")
+        headlines.extend(_parse_feed(source, url, max_items=6))
     return headlines
 
 
-def generate_analysis(headlines: list[str]) -> tuple[str, str]:
+def fetch_polish_headlines():
+    headlines = []
+    for source, url in POLISH_FEEDS:
+        headlines.extend(_parse_feed(source, url, max_items=5))
+    return headlines
+
+
+def generate_analysis(headlines: list[str], polish_headlines: list[str]) -> tuple[str, str]:
     today = datetime.utcnow().strftime("%B %d, %Y")
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
     headlines_block = "\n".join(headlines[:22])
+    polish_block    = "\n".join(polish_headlines[:15]) if polish_headlines else "(no Polish feeds available today)"
 
-    prompt = f"""Today is {today}. Here are this morning's top headlines from major news outlets:
+    prompt = f"""Today is {today}. Here are this morning's top headlines.
 
+=== GLOBAL NEWS ===
 {headlines_block}
 
-You are WorldExplainer — a daily briefing that takes the most significant news and exposes what the PUBLIC GETS WRONG about each story. Your job is not to summarise the news; it is to challenge assumptions, expose hidden mechanisms, and draw precise historical parallels that reframe how an intelligent reader understands events.
+=== POLAND NEWS (from TVN24, Onet, PAP, Polskie Radio) ===
+{polish_block}
 
-Pick the 4–5 most significant stories. For each one write:
+You are WorldExplainer — a daily briefing that exposes what the PUBLIC GETS WRONG about the most significant stories. Your job is not to summarise the news; it is to challenge assumptions, expose hidden mechanisms, and draw precise historical parallels.
 
-**[STORY TITLE IN CAPS]**
-**Public belief:** [1 sentence — the naive dominant narrative]
-**What's really happening:** [3–4 paragraphs. Deeper mechanics, hidden actors, structural causes, what the coverage systematically omits. Be specific: name institutions, dates, incentives.]
-**Historical analogy:** [1–2 paragraphs. A precise historical parallel — name the year, the people, the event. Show why the parallel is mechanically apt, not just superficially similar.]
-**Controversial thesis:** [1 tight paragraph. A well-reasoned claim that challenges both left and right conventional wisdom. Make the argument; do not hedge it.]
+Structure your response in two sections:
 
 ---
 
-End with a **SYNTHESIS** section (2–3 paragraphs): connect all the stories into one overarching pattern the public is missing this week.
+## WORLD
+
+Pick the 3–4 most significant global stories. For each write:
+
+**[STORY TITLE IN CAPS]**
+**Public belief:** [1 sentence — the naive dominant narrative]
+**What's really happening:** [3–4 paragraphs. Deeper mechanics, hidden actors, structural causes, what coverage omits. Name institutions, dates, incentives.]
+**Historical analogy:** [1–2 paragraphs. A precise parallel — name the year, the people, the event. Show why it is mechanically apt, not just superficially similar.]
+**Controversial thesis:** [1 paragraph. A well-reasoned claim that challenges conventional wisdom. Make the argument; do not hedge it.]
+
+---
+
+## POLAND
+
+Pick the 2–3 most significant Polish stories. Apply the same format. Write in English but treat the Polish reader as the primary audience — explain what Polish public discourse gets wrong, not what a foreign reader needs to understand. Draw analogies to Polish history (Solidarity, martial law, the Partition era, the Sanacja period, PRL etc.) where they illuminate the story. Be willing to challenge both PiS and Tusk-coalition narratives equally.
+
+---
+
+## SYNTHESIS
+
+2–3 paragraphs connecting the global and Polish stories into one overarching pattern the public is missing this week.
+
+---
 
 Style rules:
 - Confident, direct prose. No "some argue." No "it remains to be seen."
 - Make claims. Defend them with evidence embedded in the prose.
 - The reader is an intelligent adult who wants to understand the world, not just consume headlines.
-- Avoid bullet points inside each story section — use flowing paragraphs."""
+- Flowing paragraphs inside each story section — no bullet points."""
 
     msg = client.messages.create(
         model="claude-opus-4-6",
@@ -173,10 +213,11 @@ def send_email(content_md: str, date_str: str) -> dict:
 
 def lambda_handler(event, context):
     print("WorldExplainer Lambda starting")
-    headlines = fetch_headlines()
-    print(f"  headlines fetched: {len(headlines)}")
+    headlines        = fetch_headlines()
+    polish_headlines = fetch_polish_headlines()
+    print(f"  global headlines: {len(headlines)}, polish: {len(polish_headlines)}")
 
-    content_md, date_str = generate_analysis(headlines)
+    content_md, date_str = generate_analysis(headlines, polish_headlines)
     print(f"  analysis generated: {len(content_md)} chars")
 
     resp = send_email(content_md, date_str)
