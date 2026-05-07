@@ -10,17 +10,18 @@ from datetime import datetime
 
 RSS_FEEDS = [
     ("BBC World",   "https://feeds.bbci.co.uk/news/world/rss.xml"),
-    ("Reuters",     "https://feeds.reuters.com/reuters/topNews"),
     ("NYT World",   "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"),
-    ("AP News",     "https://feeds.apnews.com/rss/apf-topnews"),
     ("Guardian",    "https://www.theguardian.com/world/rss"),
+    ("Al Jazeera",  "https://www.aljazeera.com/xml/rss/all.xml"),
+    ("DW",          "https://rss.dw.com/rdf/rss-en-world"),
 ]
 
 POLISH_FEEDS = [
-    ("TVN24",       "https://tvn24.pl/najnowsze.xml"),
-    ("Onet",        "https://wiadomosci.onet.pl/.feed/rss"),
-    ("PAP",         "https://www.pap.pl/aktualnosci.xml"),
-    ("PolskieRadio","https://www.polskieradio.pl/rss/news.xml"),
+    ("Onet",        "https://wiadomosci.onet.pl/.feed"),
+    ("WP",          "https://wiadomosci.wp.pl/rss.xml"),
+    ("RMF24",       "https://www.rmf24.pl/feed"),
+    ("PAP",         "https://www.pap.pl/rss"),
+    ("PolskieRadio","https://www.polskieradio.pl/rss/e6979d4e-5bf9-4cbf-90f4-76d2bb74e60b"),
 ]
 
 HEADERS = {"User-Agent": "WorldExplainer/1.0 (+https://github.com/worldexplainer)"}
