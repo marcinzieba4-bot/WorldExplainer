@@ -20,7 +20,6 @@ POLISH_FEEDS = [
     ("Onet",        "https://wiadomosci.onet.pl/.feed"),
     ("WP",          "https://wiadomosci.wp.pl/rss.xml"),
     ("RMF24",       "https://www.rmf24.pl/feed"),
-    ("PAP",         "https://www.pap.pl/rss"),
     ("PolskieRadio","https://www.polskieradio.pl/rss/e6979d4e-5bf9-4cbf-90f4-76d2bb74e60b"),
 ]
 
